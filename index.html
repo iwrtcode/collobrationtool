@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" Content-Type: "text/html" charset="utf-8"/>
+	<title>Weeks Planner</title>
+  	<link rel="stylesheet" type="text/css" href="css/all.css">
+  	<script src="js/jquery-1.7.2.min.js"></script>
+  	<script src="js/jquery-ui.min.js"></script>
+  	<script type="text/javascript">
+		var item = {
+			id : '',
+			category: '',
+			description: '',
+			date: ''
+		};
+
+
+  	var editDiv='',flag =false;
+$(document).ready(function(){
+$("#containment li").live("mouseup", function(){
+
+	item.id = $(this).find("#plan-id").text();
+
+
+
+
+});
+
+//Drag and drop 
+       	   $('#plans-container .sortable-list').sortable({
+		        connectWith: '#plans-container .sortable-list',
+		        containment: '#containment',
+		        update: function(){
+		        	debugger;
+		        	if(flag) {
+		        		item.category = $(this).parent().get(0).id;
+		        		
+		        		
+		        		
+if(item.category == "completed"){
+	$(this).find("#edit").remove();
+}
+		        		
+		        		var db = openDatabase('weeksplanner', '1.0', 'holds all tasks', 2 * 1024 * 1024);
+				db.transaction(function (tx) {
+	  tx.executeSql('UPDATE task SET category = "'+item.category+'" WHERE id = '+item.id+'');
+                    });
+		        		
+		        		flag = false;
+		        	}
+		        	flag=true;
+		        	}
+        	});
+      var db = openDatabase('weeksplanner', '1.0', 'holds all tasks', 2 * 1024 * 1024);
+      db.transaction(function (tx) {
+       	   tx.executeSql('SELECT * FROM task', [], function (tx, results) {
+			  var len = results.rows.length, i;
+			  for (i = 0; i < len; i++) {
+			  	
+
+		item.id = results.rows.item(i).id;
+		item.description = results.rows.item(i).description;
+			    item.category = results.rows.item(i).category;
+			    item.date = results.rows.item(i).planCreated;
+
+if(item.category != "completed"){
+
+	editDiv = '<a id="edit" class='+item.id+'>Edit</a>';
+} else {
+	editDiv = "";
+}
+			    $("#"+item.category + " .sortable-list").append('<li id='+item.id+'created-plan class="created-plan"><div><p class="plan-description">'+item.description+'</p><span id="plan-id">'+item.id+'</span><span id="date">'+item.date+'</span><hr></div><a id="remove" class='+item.id+' alt="remove">Remove</a>'+ editDiv +' </li>');
+
+
+
+			  }
+});
+          });
+
+//Delete a task
+        $("a#remove").live("click", function (e) {
+              var removePlanId = $(this).attr("class");
+              $("#"+removePlanId+"created-plan").remove();
+              var db = openDatabase('weeksplanner', '1.0', 'holds all tasks', 2 * 1024 * 1024);
+				db.transaction(function (tx) {
+	  tx.executeSql('DELETE FROM task WHERE id = '+removePlanId +'');
+                     });
+          });        	
+
+        
+//Update a task
+           $(".button").live("click", function (e) {
+                   var plannerId = $(this).attr("id");
+                   var updatedValue = $("#"+plannerId +"created-plan div p textarea").val();
+                   if(updatedValue != ""){      
+                   $("#"+plannerId +"created-plan div p").text(updatedValue);
+                   $(".button").remove();
+                   $("#"+plannerId+"created-plan").append('<a id="edit" class='+plannerId+'  >Edit</a>');
+             var db = openDatabase('weeksplanner', '1.0', 'holds all tasks', 2 * 1024 * 1024);
+				db.transaction(function (tx) {
+	  tx.executeSql('UPDATE task SET description = "'+updatedValue+'" WHERE id = '+plannerId+'');
+                     });
+                  event.preventDefault();
+                  }else{
+                  	alert("add a plan");
+                  }     
+                });
+//Edit a task
+           $("#edit").live("click", function () {
+               
+                  var taskId = $(this).attr("class");
+                  var taskDesc = $("#"+taskId+"created-plan div p").text();
+                     
+                   $("#"+taskId+"created-plan div p").html('<textarea id="add-task-description" rows="3" cols="18">'+taskDesc+'</textarea>');
+                   
+                   
+                   $("#"+taskId+"created-plan").append('<input type="button" class="button" id='+taskId+' value="update">');
+                   $(this).remove();
+                  event.preventDefault();     
+                  });
+//Add a task          
+       	   $('#addTask').on("click", function() {
+       	   	
+       	   	  var planIdIncrementer;
+              var getDescription = $('#add-task-description').val();
+              if(getDescription !=""){
+              item.category = "all";
+
+              var fullDate = new Date()
+              var twoDigitMonth = ((fullDate.getMonth().length+1) === 1)? (fullDate.getMonth()+1) : '0' + (fullDate.getMonth()+1);
+              var currentDate = fullDate.getDate() + "/" + twoDigitMonth + "/" + fullDate.getFullYear();
+
+
+              var db = openDatabase('weeksplanner', '1.0', 'holds all tasks', 2 * 1024 * 1024);
+				db.transaction(function (tx) {
+						  tx.executeSql('CREATE TABLE IF NOT EXISTS task (id INTEGER PRIMARY KEY AUTOINCREMENT, description TEXT, planCreated TEXT, category TEXT)');
+
+tx.executeSql('INSERT INTO task (description,planCreated,category) VALUES (?, ?, ?)', [getDescription, currentDate,item.category]);
+      $('#add-task-description').val('');
+  	   tx.executeSql('SELECT * FROM task ORDER BY id DESC LIMIT 1', [], function (tx, results) {
+  
+  
+    item.id = results.rows.item(0).id;
+    item.description = results.rows.item(0).description;
+    item.date = results.rows.item(0).planCreated;
+
+    $("#all .sortable-list").append('<li id='+item.id+'created-plan class="created-plan"><div><p class="plan-description">'+item.description+'</p><span id="plan-id">'+item.id+'</span><span id="date">'+item.date+'</span><hr></div><a id="remove" class='+item.id+' alt="remove">Remove</a><a id="edit" class='+item.id+'  >Edit</a></li>');
+
+  });
+				});
+            
+              return false;
+          }else{
+          	alert("Enter a plan");
+          }
+       	   	});
+        });
+    </script>   
+</head>
+<body>
+	<div class="container_12">
+		<div class="grid_12">
+			<div id="planner-title-container">
+				<h3>Weeks Planner</h3>
+			</div>
+		</div>
+		<div class="grid_12">
+			<div id="plans-container">
+				<div id="containment">
+					<div id="all">
+						<h3>all</h3>
+		                    <ul class="sortable-list">
+		                       
+		                     	<div id="add-task">
+							<textarea id="add-task-description" rows="3" cols="18"></textarea>
+						    <hr>
+						    <input type="submit" id="addTask" value="Add Task">	
+						</div>
+		                    </ul>
+						
+					</div>
+					<div id="todo">
+						<h3>to do</h3>
+						
+			                    <ul class="sortable-list">
+			                    </ul>    
+                            
+					</div>
+					<div id="progress">
+						<h3>progress</h3>
+							
+			                    <ul class="sortable-list">
+			                    </ul>    
+                            
+
+					</div>
+					<div id="completed">
+						<h3>completed</h3>
+							
+			                    <ul class="sortable-list">
+			                    </ul>    
+                            
+					</div>
+			    </div>
+			</div>
+		</div>	
+	</div>
+</body>
+</html>
